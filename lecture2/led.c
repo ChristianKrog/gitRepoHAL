@@ -49,8 +49,6 @@ if(num_read == -1){
     close(fd);
 }
 else{
-    buffer[num_read] = 0;
-    printf("Success! read: %s", buffer);
     sleep(1);
     close(fd);
     buffer[0] ^= 1;
