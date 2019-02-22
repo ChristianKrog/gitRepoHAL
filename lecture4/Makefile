@@ -10,6 +10,6 @@ default:
 
 else
 
-	obj-m := km_hello.o
+	obj-m := gpiodriver.o
 	ccflags-y := -std=gnu99 -Wno-declaration-after-statement -Werror
 endif
