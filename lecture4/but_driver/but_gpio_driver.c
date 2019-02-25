@@ -23,10 +23,8 @@ int devno;
 
 struct cdev rhino_cdev;
 struct file_operations rhino_fops;
-struct file_operations gpio_fops;
 
 
-rhino_fops = gpio_fops;
 
 static int gpio_init(void)
 {
@@ -63,14 +61,15 @@ static int gpio_init(void)
 		return err;
 }
 
-ssize_t gpio_read(struct file *filep, char __ *buf, size_t count, loff_t *f_pos)
+ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_pos)
 {
+	int cpt_error;
 	int temp = gpio_get_value(b0);
-	int read_value[2];
-	sprintf(read_value, "%s", temp); 
+	char read_value[2];
+	sprintf(read_value, "%d", temp); 
 	int read_value_len = strlen(read_value) + 1;
 	read_value_len = read_value_len > count ? count : read_value_len;
-	copy_to_user(buf, read_value, read_value_len);
+	cpt_error = copy_to_user(buf, read_value, read_value_len);
 	*f_pos += read_value_len;
 	return read_value_len;
 }
@@ -106,7 +105,7 @@ static void gpio_exit(void)
 	printk(KERN_ALERT "gpiodriver got Unrhino'd\n");
 }
 
-struct file_operations gpio_fops = {
+struct file_operations rhino_fops = {
 	.owner = THIS_MODULE,
 	.read = gpio_read,
 	//.write = gpio_write,
