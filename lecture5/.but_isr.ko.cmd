@@ -1,0 +1,1 @@
+cmd_/home/stud/Documents/rhino/lecture5/but_isr.ko := arm-poky-linux-gnueabi-ld -EL -r  -T ./scripts/module-common.lds --build-id  -o /home/stud/Documents/rhino/lecture5/but_isr.ko /home/stud/Documents/rhino/lecture5/but_isr.o /home/stud/Documents/rhino/lecture5/but_isr.mod.o ;  true

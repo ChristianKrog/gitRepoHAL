@@ -1,0 +1,1 @@
+cmd_/home/stud/Documents/rhino/lecture5/isrcnt/isr_cnt.ko := arm-poky-linux-gnueabi-ld -EL -r  -T ./scripts/module-common.lds --build-id  -o /home/stud/Documents/rhino/lecture5/isrcnt/isr_cnt.ko /home/stud/Documents/rhino/lecture5/isrcnt/isr_cnt.o /home/stud/Documents/rhino/lecture5/isrcnt/isr_cnt.mod.o ;  true
