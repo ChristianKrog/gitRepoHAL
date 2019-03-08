@@ -12,21 +12,19 @@ char ins_buf[2] = "2";
 
 int insert(unsigned int **table, char * ins_buf)
 {
-	int i, c;
+	unsigned int i, c;
 	for(i = 0; i < 4; i++)
 	{
-		table[i] += ins_buf[0];
-		//printf("item %d in table %d\t is: %d", c, i, *(table[i]+c));
-
+		table[i][c] += ins_buf[0];
+		printf("item [%d] in [%d] is: [%d]\n", c, i, (table[i][c]));
+		c++;
 	}
-	printf("%d\n", table[i]);
-	c++;
+	printf("\n");
+	
 }
 
-
 int main(int argc, char *argp[])
-{
-	
+{	
 unsigned int *table[4] = {cnt_isr, val_isr, cnt_read, val_read};
 int j;
 for(j=0;j<10;j++)

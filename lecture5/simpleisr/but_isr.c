@@ -58,7 +58,7 @@ static int gpio_init(void)
 	irq = gpio_to_irq(b0);
 	printk(KERN_ALERT "gpio on irq line:%d\n", irq);
 
-	err = request_irq(irq, but_ISR, IRQF_TRIGGER_RISING, "but_IRQ", my_irq);
+	err = request_irq(irq, but_ISR, IRQF_TRIGGER_FALLING, "but_IRQ", NULL);
 
 	if(err < 0) goto error_req_irq;
 	printk(KERN_ALERT "request IRQ, Successs\n");
@@ -126,7 +126,7 @@ ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_
 
 static void gpio_exit(void)
 {
-	free_irq(irq, my_irq);
+	free_irq(irq, NULL); 
 	printk(KERN_ALERT "IRQ released\n");
 	cdev_del(&rhino_cdev);
 	printk(KERN_ALERT "cdev got deleted\n");
