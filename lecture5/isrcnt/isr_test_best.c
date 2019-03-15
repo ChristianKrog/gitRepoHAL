@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 #define BUFFER_SIZE 64
-#define arr_len 64
+#define arr_len 200
 char buffer[BUFFER_SIZE];
 int fd, c, samples;
 
@@ -26,17 +26,17 @@ char *strPtrArr[4] = {tok1, tok2, tok3, tok4};
 int *table[4] = {cnt_isr, val_isr, cnt_read, val_read};
 int j = 0;
 
-void insert(int **table, char **ins_buf)
+void insert(int **table, char **ins_buf, int c)
 {
         int i;
         for(i = 0; i < 4; i++)
         {
                 table[i][c] = atoi(ins_buf[i]);
-               printf("item [%d] in [%d] is: [%d]\n", c, i, (table[i][c]));        
+              // printf("item [%d] in [%d] is: [%d]\n", c, i, (table[i][c]));        
 		//printf("%d\t", atoi(ins_buf[i]));
 	}
 
-        printf("\n");
+        //printf("\n");
         
 }
 
@@ -54,9 +54,10 @@ char **split(char *str, char **tokArr)
 	return tokArr;
 }
 
-void treat(void)
+void treat(int **table)
 {
-	int cnt_diff, val_diff = 0;
+	int cnt_diff = 0; 
+	int val_diff = 0;
 	for(j = 0; j < samples; j++)
 	{
 		cnt_diff += (table[0][j]) - (table[2][j]);
@@ -75,10 +76,14 @@ void treat(void)
 
 int main(int argc, char* argv[])
 {
-
-//table* = {cnt_isr, val_isr, cnt_read, val_read};
+c = 0;
 
 samples = atoi(argv[1]);
+
+memset(tok1, 0, 16);
+memset(tok2, 0, 16);
+memset(tok3, 0, 16);
+memset(tok4, 0, 16);
 
 fd = open("/dev/button", O_RDONLY);
 
@@ -96,13 +101,13 @@ for(j =0; j < samples; j++)
 	else
 	{
 		buffer[num_read] = 0;	
-		insert(table, split(buffer, strPtrArr));
+		insert(table, split(buffer, strPtrArr), c);
 		c++;
 	//	printf("\n");
 	}	
 }
 close(fd);
-treat();
+treat(table);
 }
 
 

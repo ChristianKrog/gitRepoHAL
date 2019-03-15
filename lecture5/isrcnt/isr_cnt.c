@@ -10,7 +10,7 @@
 #include <linux/wait.h>
 #include <linux/sched.h>
 
-#define b0 12
+#define b0 19
 
 #define BUT0_MAJOR 12
 #define BUT0_MINOR 0
@@ -94,9 +94,9 @@ irqreturn_t but_ISR(int irq, void *dev_id)
 ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_pos)
 {
 	wait_event_interruptible(wq, flag == 1);
+	flag = 0;
 	read_but_val = gpio_get_value(b0);
 	cnt_read++;
-	flag = 0;
 	char read_value[64];
 	sprintf(read_value, "%d:%d:%d:%d", cnt_isr, isr_but_val, cnt_read, read_but_val); 
 	int read_value_len = strlen(read_value) + 1;
@@ -110,6 +110,12 @@ ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_
 
  int gpio_open(struct inode *inode, struct file *filep)
  {
+
+isr_but_val = -1;
+read_but_val = -1;
+cnt_isr = -1; 
+cnt_read = -1;
+flag = 0;
  int major, minor;
  major = MAJOR(inode->i_rdev);
  minor = MINOR(inode->i_rdev);
