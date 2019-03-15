@@ -97,12 +97,13 @@ ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_
 	read_but_val = gpio_get_value(b0);
 	cnt_read++;
 	flag = 0;
-	char read_value[32];
-	sprintf(read_value, "%d:%d:%d:%d\n", cnt_isr, isr_but_val, cnt_read, read_but_val); 
+	char read_value[64];
+	sprintf(read_value, "%d:%d:%d:%d", cnt_isr, isr_but_val, cnt_read, read_but_val); 
 	int read_value_len = strlen(read_value) + 1;
 	read_value_len = read_value_len > count ? count : read_value_len;
 	int cpt_error;
 	cpt_error = copy_to_user(buf, read_value, read_value_len);
+	printk("read/copy_to_user successfull");
 	*f_pos += read_value_len;
 	return read_value_len;
 }
