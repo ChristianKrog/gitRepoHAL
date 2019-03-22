@@ -6,6 +6,7 @@
 #include <linux/device.h>
 #include <linux/uaccess.h>
 #include <linux/kernel.h>
+#include <linux/platform_device.h>
 
 #define b0 12
 #define b1 16
@@ -23,30 +24,27 @@ int devno;
 
 struct cdev rhino_cdev;
 struct file_operations rhino_fops;
-
-
+struct class *rhino_buttons;
+struct device *rhino_button0;
+struct device *rhino_button1;
+//static struct platform_driver *rhino_button_platform_driver;
 
 static int gpio_init(void)
 {
 	int err;
-	err = gpio_request(b0, but0);
-	if(err < 0) goto error_exit;
-	printk(KERN_ALERT "gpio_reguest, successfull\n");
-	err = gpio_direction_input(b0);
-	if(err < 0) goto error_free_gpio;
-	printk(KERN_ALERT "gpio_direction got set to input\n");
-	devno = MKDEV(BUT0_MAJOR, BUT0_MINOR);
-
-	err = register_chrdev_region(devno, NUM_OF_BUTS, "Button0");
+	err = alloc_chrdev_region(&devno, 0, NUM_OF_BUTS, "Buttons");
 	if(err < 0) goto error_free_chrdev_region;
 	printk(KERN_ALERT "chrdev_region got registered\n");
 
+	rhino_buttons = class_create(THIS_MODULE, "rhino_buttons_cls");
 	cdev_init(&rhino_cdev, &rhino_fops);
 	
 	err = cdev_add(&rhino_cdev, devno, NUM_OF_BUTS);
 	if(err < 0) goto error_unreg_cdev;
 	printk(KERN_ALERT "cdev got add'ed\n");
 	printk(KERN_ALERT "gpiodriver got Rhino'd\n");
+
+	platform_driver_register(rhino_button_platform_driver);
 
 	return 0;
 
@@ -94,8 +92,49 @@ ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_
  return 0;
  }
 
+static int rhino_button_probe(struct platform_device *pdev)
+{
+	printk(KERN_DEBUG "New Platform device: %s\n", pdev->name);
+	int err;
+	err = gpio_request(b0, but0);
+	if(err < 0) goto error_exit;
+//	err = gpio_request(b1, but1);
+//	if(err < 0) goto error_free_gpio;
+	printk(KERN_ALERT "gpio_reguest, successfull\n");
+	err = gpio_direction_input(b0);
+	if(err < 0) goto error_free_gpio0;	
+//	err = gpio_direction_input(b1);
+//	if(err < 0) goto error_free_gpio1;	
+	printk(KERN_ALERT "gpio_direction got set to input\n");
+
+	rhino_button0 = device_create(rhino_buttons, NULL, MKDEV(MAJOR(devno), 0), NULL, "button0"); 
+
+//	rhino_button1 = device_create(rhino_buttons, NULL, MKDEV(MAJOR(devno), 1), NULL, "button%d", 1); 
+
+	return err;
+
+	error_free_gpio1:
+		gpio_free(b1);
+	error_free_gpio0:
+		gpio_free(b0);
+	error_exit:
+		return err;
+}
+
+static int rhino_button_remove(struct platform_device *pdev)
+{
+printk(KERN_ALERT "Removing device %s\n", pdev->name);
+device_destroy(rhino_buttons, MKDEV(MAJOR(devno), 0));
+gpio_free(b0);
+return 0;
+}
+
 static void gpio_exit(void)
 {
+	platform_driver_unregister(rhino_button_platform_driver);
+	printk(KERN_ALERT "Platform driver got unregistered");
+	class_destroy(rhino_buttons);
+	printk(KERN_ALERT "Rhino class got destroyed");
 	cdev_del(&rhino_cdev);
 	printk(KERN_ALERT "cdev got deleted\n");
 	unregister_chrdev_region(devno, NUM_OF_BUTS);
@@ -112,6 +151,19 @@ struct file_operations rhino_fops = {
 	.open = gpio_open,
 	.release = gpio_release,
 };
+
+static const struct of_device_id rhino_button_platform_device_match[] =
+{
+{ .compatible = "ase, plat_drv",}, {},
+};
+
+*platform_driver rhino_button_platform_driver = {
+.probe = rhino_button_probe,
+.remove = rhino_button_remove,
+.driver = {
+.name = "ase, plat_drv",
+.of_match_table = rhino_button_platform_device_match,
+.owner = THIS_MODULE, }, };
 
 module_init(gpio_init);
 module_exit(gpio_exit);
