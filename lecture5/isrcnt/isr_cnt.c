@@ -98,7 +98,7 @@ ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_
 	read_but_val = gpio_get_value(b0);
 	cnt_read++;
 	char read_value[64];
-	sprintf(read_value, "%d:%d:%d:%d", cnt_isr, isr_but_val, cnt_read, read_but_val); 
+	sprintf(read_value, "%d\t%d\t%d\t%d\n", cnt_isr, cnt_read, isr_but_val, read_but_val); 
 	int read_value_len = strlen(read_value) + 1;
 	read_value_len = read_value_len > count ? count : read_value_len;
 	int cpt_error;
