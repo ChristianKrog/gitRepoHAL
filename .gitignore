@@ -1,0 +1,7 @@
+/lecture6
+*.o
+*.symvers
+*.order
+*.dtbo
+*.ko
+
