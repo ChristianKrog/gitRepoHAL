@@ -1,1 +1,0 @@
-cmd_/home/stud/Documents/HAL/rhino/lecture6/built-in.o :=  rm -f /home/stud/Documents/HAL/rhino/lecture6/built-in.o; arm-poky-linux-gnueabi-ar rcSTPD /home/stud/Documents/HAL/rhino/lecture6/built-in.o
