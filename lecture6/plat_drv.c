@@ -11,9 +11,17 @@
 #define b0 12
 #define b1 16
 
-#define NUM_OF_BUTS 2
+static int NUM_OF_BUTS = 2;
 
 MODULE_LICENSE("GPL");
+
+struct button_dev {
+	int buttonno;
+	int gpio_number;
+	int dir;
+};
+
+static struct button_dev rhino_button_devs[2] = {{0, 12, 0}, {0, 16, 0}};
 
 char but0[8] = "button0";
 char but1[8] = "button1";
@@ -32,19 +40,26 @@ static int rhino_button_probe(struct platform_device *pdev)
 	printk(KERN_DEBUG "Entering probe \n");
 	printk(KERN_DEBUG "New Platform device: %s \n", pdev->name);
 	int err;
-	err = gpio_request(b0, but0);
-	if(err < 0) goto error_exit;
-	err = gpio_request(b1, but1);
-	if(err < 0) goto error_free_but0;
+	for(int i = 0; i < NUM_OF_BUTS; i++)
+	{
+		err = gpio_request(rhino_button_devs[i].gpio_number, strchr("button%s", rhino_button_devs[i].buttonno));
+	
+		if(err < 0) goto error_exit;
+	}
 	printk(KERN_DEBUG "gpio_reguest, successfull\n");
-	err = gpio_direction_input(b0);
-	if(err < 0) goto error_free_but1;	
-	err = gpio_direction_input(b1);
-	if(err < 0) goto error_free_but1;	
-	printk(KERN_DEBUG "gpio_direction got set to input\n");
+	
+	for(int i = 0; i < NUM_OF_BUTS; i++)
+	{
+		err = gpio_direction_input(rhino_button_devs[i].gpio_number);
+		if(err < 0) goto error_free_but1;	
+	}
+	printk(KERN_DEBUG "button gpio directions got set to input\n");
 
-	rhino_button0 = device_create(rhino_buttons, NULL, MKDEV(MAJOR(devno), 0), NULL, "button0"); 
-
+	for(int i = 0; i < NUM_OF_BUTS; i++)
+	{
+		rhino_button0 = device_create(rhino_buttons, NULL, MKDEV(MAJOR(devno), rhino_button_devs[i].buttono), NULL, "button%d", rhino_button_devs[i].buttono); 
+	} ################################################
+	
 	rhino_button1 = device_create(rhino_buttons, NULL, MKDEV(MAJOR(devno), 1), NULL, "button%d", 1); 
 
 	return err;
