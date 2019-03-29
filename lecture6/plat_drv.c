@@ -21,7 +21,7 @@ struct button_dev {
 	int dir;
 };
 
-static struct button_dev rhino_button_devs[2] = {{0, 12, 0}, {0, 16, 0}};
+static struct button_dev rhino_button_devs[2] = {{0, 12, 0}, {1, 16, 0}};
 
 char but0[8] = "button0";
 char but1[8] = "button1";
@@ -32,7 +32,7 @@ struct cdev rhino_cdev;
 struct file_operations rhino_fops;
 struct class *rhino_buttons;
 struct device *rhino_button0;
-struct device *rhino_button1;
+struct device *rhino_button[255];
 
 
 static int rhino_button_probe(struct platform_device *pdev)
@@ -45,28 +45,22 @@ static int rhino_button_probe(struct platform_device *pdev)
 		err = gpio_request(rhino_button_devs[i].gpio_number, strchr("button%s", rhino_button_devs[i].buttonno));
 	
 		if(err < 0) goto error_exit;
-	}
-	printk(KERN_DEBUG "gpio_reguest, successfull\n");
-	
-	for(int i = 0; i < NUM_OF_BUTS; i++)
-	{
+
+
 		err = gpio_direction_input(rhino_button_devs[i].gpio_number);
 		if(err < 0) goto error_free_but1;	
+		
+		rhino_button[i] = device_create(rhino_buttons, NULL, MKDEV(MAJOR(devno), i), NULL, "button%d", i); 
 	}
-	printk(KERN_DEBUG "button gpio directions got set to input\n");
-
-	for(int i = 0; i < NUM_OF_BUTS; i++)
-	{
-		rhino_button0 = device_create(rhino_buttons, NULL, MKDEV(MAJOR(devno), rhino_button_devs[i].buttono), NULL, "button%d", rhino_button_devs[i].buttono); 
-	} ################################################
 	
-	rhino_button1 = device_create(rhino_buttons, NULL, MKDEV(MAJOR(devno), 1), NULL, "button%d", 1); 
+	
+	printk(KERN_DEBUG "gpio_reguest, successfull\n");
+	
+	printk(KERN_DEBUG "button gpio directions got set to input\n");
 
 	return err;
 	error_free_but1:
 		gpio_free(b1);
-	error_free_but0:
-		gpio_free(b0);
 	error_exit:
 		return err;
 }
@@ -74,8 +68,11 @@ static int rhino_button_probe(struct platform_device *pdev)
 static int rhino_button_remove(struct platform_device *pdev)
 {
 printk(KERN_DEBUG "Removing device %s \n", pdev->name);
-device_destroy(rhino_buttons, MKDEV(MAJOR(devno), 0));
-gpio_free(b0);
+for(int i = 0; i < NUM_OF_BUTS; i++)
+{
+device_destroy(rhino_buttons, MKDEV(MAJOR(devno), i));
+gpio_free(rhino_button_devs[i].gpio_number);
+}
 return 0;
 }
 
