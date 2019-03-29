@@ -7,11 +7,14 @@
 #include <linux/uaccess.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/of_gpio.h>
+#include <linux/of_device.h>
+
 
 #define b0 12
 #define b1 16
 
-static int NUM_OF_BUTS = 2;
+static int NUM_OF_BUTS = 0;
 
 MODULE_LICENSE("GPL");
 
@@ -39,7 +42,17 @@ static int rhino_button_probe(struct platform_device *pdev)
 {
 	printk(KERN_DEBUG "Entering probe \n");
 	printk(KERN_DEBUG "New Platform device: %s \n", pdev->name);
-	int err;
+	int err = 0;
+
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	enum of_gpio_flags flag;
+	//int gpios_in_dt = 0;
+
+	NUM_OF_BUTS = of_gpio_count(np);
+
+	printk(KERN_DEBUG "count: %d\n", NUM_OF_BUTS);
+
 	for(int i = 0; i < NUM_OF_BUTS; i++)
 	{
 		err = gpio_request(rhino_button_devs[i].gpio_number, strchr("button%s", rhino_button_devs[i].buttonno));
@@ -95,8 +108,7 @@ ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_
 {
 	int nodno, but; 
 	nodno = MINOR(filep->f_inode->i_rdev);
-	if(nodno == 1) but = b1;
-	else but = b0;
+	but = rhino_button_devs[nodno].gpio_number;
 	int cpt_error;
 	int temp = gpio_get_value(but);
 	char read_value[2];
@@ -141,14 +153,14 @@ struct file_operations rhino_fops = {
 static int gpio_init(void)
 {
 	int err;
-	err = alloc_chrdev_region(&devno, 0, NUM_OF_BUTS, "Buttons");
+	err = alloc_chrdev_region(&devno, 0,255, "Buttons");
 	if(err < 0) goto error_free_chrdev_region;
 	printk(KERN_DEBUG "chrdev_region got registered\n");
 
 	rhino_buttons = class_create(THIS_MODULE, "rhino_buttons_cls");
 	cdev_init(&rhino_cdev, &rhino_fops);
 	
-	err = cdev_add(&rhino_cdev, devno, NUM_OF_BUTS);
+	err = cdev_add(&rhino_cdev, devno, 255);
 	if(err < 0) goto error_free_chrdev_region;
 	printk(KERN_DEBUG "cdev got add'ed\n");
 	printk(KERN_DEBUG "init got executed\n");
