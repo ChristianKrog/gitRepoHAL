@@ -16,7 +16,7 @@
 
         compatible = "ase, plat_drv";
 	gpios = <&gpio 12 0>, <&gpio 16 0>, <&gpio 26 1>;
-
+	rhino_custom = <0x0000001C>;
         status = "okay";
       };
     };

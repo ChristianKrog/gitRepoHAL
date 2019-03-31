@@ -1,4 +1,5 @@
 #include <linux/init.h>
+#include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/gpio.h>
 #include <linux/fs.h>
@@ -30,7 +31,7 @@ struct cdev rhino_cdev;
 struct file_operations rhino_fops;
 struct class *rhino_buttons;
 struct device *rhino_button[255];
-
+unsigned int rhino_custom;
 
 static int rhino_button_probe(struct platform_device *pdev)
 {
@@ -42,6 +43,10 @@ static int rhino_button_probe(struct platform_device *pdev)
 	enum of_gpio_flags flag;
 
 	NUM_OF_BUTS = of_gpio_count(np);
+	//const char name[30] = "rhino_custom\0";
+	err = of_property_read_u32(np, "rhino_custom", &rhino_custom); 
+	if(err != 0) printk(KERN_ALERT "of_property_read_u32 failed with error: %d\n", err);
+	else printk(KERN_DEBUG "rhino_custom = %d\n", rhino_custom);
 
 	printk(KERN_DEBUG "gpio count: %d\n", NUM_OF_BUTS);
 
