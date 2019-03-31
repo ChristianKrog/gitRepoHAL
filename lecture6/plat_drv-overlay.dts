@@ -15,7 +15,7 @@
         /* Label to match in driver */
 
         compatible = "ase, plat_drv";
-	gpios = <&gpio 12 0>, <&gpio 16 0>;
+	gpios = <&gpio 12 0>, <&gpio 16 0>, <&gpio 26 1>;
 
         status = "okay";
       };

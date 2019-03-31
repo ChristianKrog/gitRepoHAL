@@ -9,10 +9,7 @@
 #include <linux/platform_device.h>
 #include <linux/of_gpio.h>
 #include <linux/of_device.h>
-
-
-#define b0 12
-#define b1 16
+#include <linux/of.h>
 
 static int NUM_OF_BUTS = 0;
 
@@ -22,59 +19,80 @@ struct button_dev {
 	int buttonno;
 	int gpio_number;
 	int dir;
+	int default_output;
 };
 
-static struct button_dev rhino_button_devs[2] = {{0, 12, 0}, {1, 16, 0}};
-
-char but0[8] = "button0";
-char but1[8] = "button1";
+static struct button_dev rhino_button_devs[255];
 
 int devno;
 
 struct cdev rhino_cdev;
 struct file_operations rhino_fops;
 struct class *rhino_buttons;
-struct device *rhino_button0;
 struct device *rhino_button[255];
 
 
 static int rhino_button_probe(struct platform_device *pdev)
 {
-	printk(KERN_DEBUG "Entering probe \n");
 	printk(KERN_DEBUG "New Platform device: %s \n", pdev->name);
-	int err = 0;
+	int err = 0, i, k;
 
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	enum of_gpio_flags flag;
-	//int gpios_in_dt = 0;
 
 	NUM_OF_BUTS = of_gpio_count(np);
 
-	printk(KERN_DEBUG "count: %d\n", NUM_OF_BUTS);
+	printk(KERN_DEBUG "gpio count: %d\n", NUM_OF_BUTS);
 
-	for(int i = 0; i < NUM_OF_BUTS; i++)
+	for(k = 0; k < NUM_OF_BUTS; k++)
 	{
+		rhino_button_devs[k].gpio_number = of_get_gpio_flags(np, k, &flag);
+		
+		rhino_button_devs[k].dir = flag;
+	}
+
+
+	for(i = 0; i < NUM_OF_BUTS; i++)
+	{
+		rhino_button_devs[i].default_output = 0;
 		err = gpio_request(rhino_button_devs[i].gpio_number, strchr("button%s", rhino_button_devs[i].buttonno));
 	
 		if(err < 0) goto error_exit;
 
-
+		if(rhino_button_devs[i].dir == 0)
+		{
 		err = gpio_direction_input(rhino_button_devs[i].gpio_number);
-		if(err < 0) goto error_free_but1;	
+		if(err == 0)printk(KERN_DEBUG "gpio %d directions got set to input\n", rhino_button_devs[i].gpio_number);
+		else 
+		{
+		printk(KERN_ALERT "gpio_direction_input error in gpio: %d\n", rhino_button_devs[i].gpio_number);
+		goto error_exit;
+		}
+		}
+		else if(rhino_button_devs[i].dir == 1)
+		{
+		err = gpio_direction_output(rhino_button_devs[i].gpio_number, rhino_button_devs[i].default_output);	
 		
+		if(err == 0)printk(KERN_DEBUG "gpio %d directions got set to output\n", rhino_button_devs[i].gpio_number);
+		else 
+		{
+		printk(KERN_ALERT "gpio_direction_output error in gpio: %d\n", rhino_button_devs[i].gpio_number);
+		goto error_exit;
+		}
+		}
 		rhino_button[i] = device_create(rhino_buttons, NULL, MKDEV(MAJOR(devno), i), NULL, "button%d", i); 
-	}
-	
+
+	}	
 	
 	printk(KERN_DEBUG "gpio_reguest, successfull\n");
-	
-	printk(KERN_DEBUG "button gpio directions got set to input\n");
 
 	return err;
-	error_free_but1:
-		gpio_free(b1);
 	error_exit:
+		for(int d = i; d > 0; d--)
+		{
+			gpio_free(rhino_button_devs[d].gpio_number);
+		}
 		return err;
 }
 
@@ -120,6 +138,20 @@ ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_
 	return read_value_len;
 }
 
+ssize_t gpio_write(struct file *filep, const char __user *buf, size_t count, loff_t *f_pos)
+{
+	int nodno, out_val; 
+	nodno = MINOR(filep->f_inode->i_rdev);
+  	char rhino_buf[2];
+  	int err = copy_from_user(rhino_buf, buf, count);
+  	if(err !=0) printk(KERN_ALERT "Write error!");
+
+	sscanf(rhino_buf, "%d", &out_val);
+  	gpio_set_value(rhino_button_devs[nodno].gpio_number, out_val);
+  	*f_pos += count;
+  	return count;
+}
+
  int gpio_open(struct inode *inode, struct file *filep)
  {
  int major, minor;
@@ -145,7 +177,7 @@ ssize_t gpio_read(struct file *filep, char __user *buf, size_t count, loff_t *f_
 struct file_operations rhino_fops = {
 	.owner = THIS_MODULE,
 	.read = gpio_read,
-	//.write = gpio_write,
+	.write = gpio_write,
 	.open = gpio_open,
 	.release = gpio_release,
 };
