@@ -67,11 +67,11 @@ static int rhino_button_probe(struct platform_device *pdev)
 
 		if(rhino_button_devs[i].dir == 0)
 		{
-		err = gpio_direction_input(rhino_button_devs[i].gpio_number);
-		if(err == 0)printk(KERN_DEBUG "gpio %d directions got set to input\n", rhino_button_devs[i].gpio_number);
-		else 
-		{
-		printk(KERN_ALERT "gpio_direction_input error in gpio: %d\n", rhino_button_devs[i].gpio_number);
+			err = gpio_direction_input(rhino_button_devs[i].gpio_number);
+			if(err == 0)printk(KERN_DEBUG "gpio %d directions got set to input\n", rhino_button_devs[i].gpio_number);
+			else 
+			{
+				printk(KERN_ALERT "gpio_direction_input error in gpio: %d\n", rhino_button_devs[i].gpio_number);
 		goto error_exit;
 		}
 		}
@@ -79,7 +79,21 @@ static int rhino_button_probe(struct platform_device *pdev)
 		{
 		err = gpio_direction_output(rhino_button_devs[i].gpio_number, rhino_button_devs[i].default_output);	
 		
-		if(err == 0)printk(KERN_DEBUG "gpio %d directions got set to output\n", rhino_button_devs[i].gpio_number);
+		if(err == 0)
+		{
+			printk(KERN_DEBUG "gpio %d directions got set to output\n", rhino_button_devs[i].gpio_number);
+		
+			if(((rhino_custom >> i) & 1) > 0)
+                        {
+                        	gpio_set_value(rhino_button_devs[i].gpio_number, 1);
+                        	printk(KERN_DEBUG "gpio %d got set to high\n", rhino_button_devs[i].gpio_number);
+			}
+                	else
+                	{
+				gpio_set_value(rhino_button_devs[i].gpio_number, 0);
+                        	printk(KERN_DEBUG "gpio%d got set to low\n", rhino_button_devs[i].gpio_number);
+                	}
+		}	
 		else 
 		{
 		printk(KERN_ALERT "gpio_direction_output error in gpio: %d\n", rhino_button_devs[i].gpio_number);
