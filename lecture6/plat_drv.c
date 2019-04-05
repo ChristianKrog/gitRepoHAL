@@ -233,7 +233,7 @@ static void gpio_exit(void)
 	printk(KERN_DEBUG "Rhino class got destroyed\n");
 	cdev_del(&rhino_cdev);
 	printk(KERN_DEBUG "cdev got deleted\n");
-	unregister_chrdev_region(devno, NUM_OF_BUTS);
+	unregister_chrdev_region(devno, 255);
 	printk(KERN_DEBUG "chrdev_region got unregistered\n");
 	printk(KERN_DEBUG "gpiodriver got Unrhino'd\n");
 }

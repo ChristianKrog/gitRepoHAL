@@ -1,0 +1,2 @@
+plat_drv-overlay.o: \
+ /home/stud/Documents/HAL/rhino/lecture6/plat_drv-overlay.dts

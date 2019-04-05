@@ -1,0 +1,1 @@
+cmd_/home/stud/Documents/HAL/rhino/lecture3/km_hello.ko := arm-poky-linux-gnueabi-ld -EL -r  -T ./scripts/module-common.lds --build-id  -o /home/stud/Documents/HAL/rhino/lecture3/km_hello.ko /home/stud/Documents/HAL/rhino/lecture3/km_hello.o /home/stud/Documents/HAL/rhino/lecture3/km_hello.mod.o ;  true
