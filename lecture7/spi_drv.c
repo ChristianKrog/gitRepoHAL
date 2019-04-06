@@ -138,7 +138,6 @@ ssize_t spi_drv_write(struct file *filep, const char __user *ubuf,
   if(MODULE_DEBUG)
     printk("value %i\n", value);
 
-  spi_devs[minor].channel = (value & 0x8000) >> 8;
   spi_devs[minor].gain =    (value & 0x2000) >> 8;
   spi_devs[minor].OE =      (value & 0x1000) >> 8;
   spi_devs[minor].value =   (value & 0xFF0) >> 4;
@@ -255,7 +254,7 @@ static int spi_drv_probe(struct spi_device *sdev)
 
   /* Update local array of SPI devices */
   spi_devs[spi_devs_cnt].spi = sdev;
-  spi_devs[spi_devs_cnt].channel = 0x00 + j; // channel address
+  spi_devs[spi_devs_cnt].channel = (0x00 + j) << 7; // channel address
   ++spi_devs_cnt;
  }
   return err;
