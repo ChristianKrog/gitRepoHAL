@@ -2,9 +2,12 @@
 #include <linux/uaccess.h>  // copy_to_user
 #include <linux/module.h> // module_init, GPL
 #include <linux/spi/spi.h> // spi_sync,
+#include <linux/gpio.h>
 
 #define MAXLEN 32
 #define MODULE_DEBUG 1   // Enable/Disable Debug messages
+
+#define LDAC 5
 
 /* Char Driver Globals */
 static struct spi_driver spi_drv_spi_driver;
@@ -19,9 +22,9 @@ static struct cdev spi_drv_cdev;
 struct Myspi {
   struct spi_device *spi; // Pointer to SPI device
   int channel;
-  u8 gain;
-  u8 OE;
-  u8 value;            // channel, ex. adc ch 0
+  int gain;
+  int OE;
+  int value;            // channel, ex. adc ch 0
 };
 /* Array of SPI devices */
 /* Minor used to index array */
@@ -45,6 +48,7 @@ static int spi_devs_cnt = 0; // Nbr devices present
  */
 
 int write_to_DAC(struct Myspi spi_dev);
+void toggleLDAC(void);
 
 
 static int __init spi_drv_init(void)
@@ -134,10 +138,12 @@ ssize_t spi_drv_write(struct file *filep, const char __user *ubuf,
   if(MODULE_DEBUG)
     printk("value %i\n", value);
 
-  spi_devs[minor].channel = (value & 0x8000) >> 15;
-  spi_devs[minor].gain = (u8)(value & 0x2000) >> 13;
-  spi_devs[minor].OE = (u8)(value & 0x1000) >> 12;
-  spi_devs[minor].value = (u8)(value & 0xFF00) >> 4;
+  spi_devs[minor].channel = (value & 0x8000) >> 8;
+  spi_devs[minor].gain =    (value & 0x2000) >> 8;
+  spi_devs[minor].OE =      (value & 0x1000) >> 8;
+  spi_devs[minor].value =   (value & 0xFF0) >> 4;
+
+  printk("Masked studd in struct: channel: %d gain: %d OE: %d value: %d\n", spi_devs[minor].channel, spi_devs[minor].gain, spi_devs[minor].OE, spi_devs[minor].value);
 
   /* Legacy file ptr f_pos. Used to support
    * random access but in char drv we dont!
@@ -212,6 +218,7 @@ static int spi_drv_probe(struct spi_device *sdev)
 {
   int err = 0;
   struct device *spi_drv_device;
+  struct device *spi_drv_dac_LDAC;
 
   printk(KERN_DEBUG "New SPI device: %s using chip select: %i\n",
          sdev->modalias, sdev->chip_select);
@@ -229,6 +236,10 @@ static int spi_drv_probe(struct spi_device *sdev)
 
   /* Create devices, populate sysfs and
      active udev to create devices in /dev */
+
+  err = gpio_request(LDAC, "LDAC");
+  err = gpio_direction_output(LDAC, 1);
+  spi_drv_dac_LDAC = device_create(spi_drv_class, NULL, MKDEV(MAJOR(devno), 255), NULL, "LDAC");
 
   for (int j =0 ; j<2;j++)
 {
@@ -257,7 +268,7 @@ static int spi_drv_probe(struct spi_device *sdev)
  */
 static int spi_drv_remove(struct spi_device *sdev)
 {
-  int its_minor = 0;
+  //int its_minor = 0;
 
   printk (KERN_ALERT "Removing spi device\n");
   for(int i = spi_devs_cnt; i >= 0; i--)
@@ -265,6 +276,7 @@ static int spi_drv_remove(struct spi_device *sdev)
   /* Destroy devices created in probe() */
   device_destroy(spi_drv_class, MKDEV(MAJOR(devno), i));
   }
+  device_destroy(spi_drv_class, MKDEV(MAJOR(devno), 255));
   return 0;
 }
 
@@ -310,8 +322,8 @@ int write_to_DAC(struct Myspi spi_dev)
   struct spi_transfer t[2];
   struct spi_message m;
   u8 cmd[2];
-  cmd[0] = ((spi_dev.channel & 1) << 7) | ((spi_dev.gain & 1) << 5) | ((spi_dev.OE & 1) << 4) | ((spi_dev.value & 0xf0) >> 4);
-  cmd[1] = spi_dev.value << 4;
+  cmd[0] = spi_dev.channel | spi_dev.gain | spi_dev.OE | ((spi_dev.value & 0xf0) >> 4);
+  cmd[1] = (u8)(spi_dev.value << 4) & 0xf0;
 
   memset(&t, 0, sizeof(t)); 
   spi_message_init(&m);
@@ -319,13 +331,15 @@ int write_to_DAC(struct Myspi spi_dev)
 
   if(MODULE_DEBUG)
     printk(KERN_DEBUG "MCP4802: Writing %d to channel %d with gain set to %d and output enable is set to %d\n", spi_dev.value, spi_dev.channel, spi_dev.gain, spi_dev.OE); 
+
+  printk("cmd values: 1= %u : 0= %u\n", cmd[1], cmd[0]);
   /* Configure tx/rx buffers */
-  t[0].tx_buf = &cmd[1];
+  t[0].tx_buf = &cmd[0];
   t[0].rx_buf = NULL;
   t[0].len = 1;
   spi_message_add_tail(&t[0], &m);
 
-  t[1].tx_buf = &cmd[0];
+  t[1].tx_buf = &cmd[1];
   t[1].rx_buf = NULL;
   t[1].len = 1;
   spi_message_add_tail(&t[1], &m);
@@ -335,6 +349,13 @@ int write_to_DAC(struct Myspi spi_dev)
 
   err = spi_sync(m.spi, &m);
   if(err != 0) return -EFAULT;
-  else return 0;
+  else toggleLDAC(); 
+  return 0;
+}
 
+void toggleLDAC(void)
+{
+  int time = 2;
+  gpio_set_value(LDAC, 0);
+  for(int i = 0; i < 100000000; i ++) time /= 3;
 }
