@@ -10,7 +10,8 @@
 #define LDAC 5
 
 /* Char Driver Globals */
-static struct spi_driver spi_drv_spi_driver;
+static struct spi_driver spi_drv_spi_DAC;
+static struct spi_driver spi_drv_spi_ADC;
 struct file_operations spi_drv_fops;
 static struct class *spi_drv_class;
 static dev_t devno;
@@ -28,8 +29,8 @@ struct Myspi {
 };
 /* Array of SPI devices */
 /* Minor used to index array */
-struct Myspi spi_devs[2];
-const int spi_devs_len = 2;  // Max nbr of devices
+struct Myspi spi_devs[4];
+const int spi_devs_len = 4;  // Max nbr of devices
 static int spi_devs_cnt = 0; // Nbr devices present
 
 /* Macro to handle Errors */
@@ -49,7 +50,7 @@ static int spi_devs_cnt = 0; // Nbr devices present
 
 int write_to_DAC(struct Myspi spi_dev);
 void toggleLDAC(void);
-
+int read_from_ADC(struct Myspi spi_dev, int *value);
 
 static int __init spi_drv_init(void)
 {
@@ -75,7 +76,11 @@ static int __init spi_drv_init(void)
 
   /* Register SPI Driver */
   /* THIS WILL INVOKE PROBE, IF DEVICE IS PRESENT!!! */
-  err = spi_register_driver(&spi_drv_spi_driver);
+  err = spi_register_driver(&spi_drv_spi_DAC);
+  if(err)
+    ERRGOTO(err_cleanup_class, "Failed SPI Registration\n");
+
+  err = spi_register_driver(&spi_drv_spi_ADC);
   if(err)
     ERRGOTO(err_cleanup_class, "Failed SPI Registration\n");
 
@@ -103,7 +108,8 @@ static void __exit spi_drv_exit(void)
 {
   printk("spi_drv driver Exit\n");
 
-  spi_unregister_driver(&spi_drv_spi_driver);
+  spi_unregister_driver(&spi_drv_spi_DAC);
+  spi_unregister_driver(&spi_drv_spi_ADC);
   class_destroy(spi_drv_class);
   cdev_del(&spi_drv_cdev);
   unregister_chrdev_region(devno, 255);
@@ -165,7 +171,10 @@ ssize_t spi_drv_read(struct file *filep, char __user *ubuf,
 {
   int minor, len;
   char resultBuf[MAXLEN];
-  s16 result=1234;
+  static int result = 0;
+  char converted[8];
+
+  memset(converted, 0, sizeof(converted));
 
   minor = iminor(filep->f_inode);
 
@@ -173,16 +182,21 @@ ssize_t spi_drv_read(struct file *filep, char __user *ubuf,
     Provide a result to write to user space
   */
 
+  read_from_ADC(spi_devs[minor], &result);
+
   if(MODULE_DEBUG)
     printk(KERN_ALERT "%s-%i read: %i\n",
            spi_devs[minor].spi->modalias, spi_devs[minor].channel, result);
 
   /* Convert integer to string limited to "count" size. Returns
    * length excluding NULL termination */
+  //sprintf(converted, "%d", result);
+
   len = snprintf(resultBuf, count, "%d\n", result);
 
   /* Append Length of NULL termination */
   len++;
+  //len = count < MAXLEN ? count : MAXLEN;
 
   /* Copy data to user space */
   if(copy_to_user(ubuf, resultBuf, len))
@@ -194,6 +208,25 @@ ssize_t spi_drv_read(struct file *filep, char __user *ubuf,
   return len;
 }
 
+ int gpio_open(struct inode *inode, struct file *filep)
+ {
+   int major, minor;
+   major = MAJOR(inode->i_rdev);
+   minor = MINOR(inode->i_rdev);
+   printk(KERN_DEBUG "Opening gpio Device [major], [minor]: %i, %i\n", major, minor);
+   return 0;
+ }
+
+ int gpio_release(struct inode *inode, struct file *filep)
+ {
+   int minor, major;
+
+   major = MAJOR(inode->i_rdev);
+   minor = MINOR(inode->i_rdev);
+   printk(KERN_DEBUG "Releasing gpio Device [major], [minor]: %i, %i\n", major, minor);
+
+   return 0;
+ }
 /*
  * Character Driver File Operations Structure
  */
@@ -201,7 +234,9 @@ struct file_operations spi_drv_fops =
   {
     .owner   = THIS_MODULE,
     .write   = spi_drv_write,
-    //.read    = spi_drv_read,
+    .read    = spi_drv_read,
+    .open    = gpio_open,
+    .release = gpio_release,
   };
 
 /**********************************************************
@@ -235,10 +270,12 @@ static int spi_drv_probe(struct spi_device *sdev)
 
   /* Create devices, populate sysfs and
      active udev to create devices in /dev */
-
-  err = gpio_request(LDAC, "LDAC");
-  err = gpio_direction_output(LDAC, 1);
-  spi_drv_dac_LDAC = device_create(spi_drv_class, NULL, MKDEV(MAJOR(devno), 255), NULL, "LDAC");
+  if(sdev->chip_select == 1)
+  {
+    err = gpio_request(LDAC, "LDAC");
+    err = gpio_direction_output(LDAC, 1);
+    spi_drv_dac_LDAC = device_create(spi_drv_class, NULL, MKDEV(MAJOR(devno), 255), NULL, "LDAC");
+  }
 
   for (int j =0 ; j<2;j++)
 {
@@ -279,22 +316,39 @@ static int spi_drv_remove(struct spi_device *sdev)
   return 0;
 }
 
+
+
 /*
  * spi Driver Struct
  * Holds function pointers to probe/release
  * methods and the name under which it is registered
  */
-static const struct of_device_id of_spi_drv_spi_device_match[] = {
-  { .compatible = "spi_drv_DAC", "spi_drv_ADC"}, {},
+static const struct of_device_id of_spi_drv_spi_DAC_match[] = {
+  { .compatible = "spi_drv_DAC", }, {},
 };
 
-static struct spi_driver spi_drv_spi_driver = {
+static const struct of_device_id of_spi_drv_spi_ADC_match[] = {
+  { .compatible = "spi_drv_ADC", }, {},
+};
+
+static struct spi_driver spi_drv_spi_DAC = {
   .probe      = spi_drv_probe,
   .remove           = spi_drv_remove,
   .driver     = {
-    .name   = "spi_drv",
+    .name   = "spi_drv_DAC",
     .bus    = &spi_bus_type,
-    .of_match_table = of_spi_drv_spi_device_match,
+    .of_match_table = of_spi_drv_spi_DAC_match,
+    .owner  = THIS_MODULE,
+  },
+};
+
+static struct spi_driver spi_drv_spi_ADC = {
+  .probe      = spi_drv_probe,
+  .remove           = spi_drv_remove,
+  .driver     = {
+    .name   = "spi_drv_ADC",
+    .bus    = &spi_bus_type,
+    .of_match_table = of_spi_drv_spi_ADC_match,
     .owner  = THIS_MODULE,
   },
 };
@@ -358,3 +412,52 @@ void toggleLDAC(void)
   gpio_set_value(LDAC, 0);
   for(int i = 0; i < 100000000; i ++) time /= 3;
 }
+
+int read_from_ADC(struct Myspi spi_dev, int *value)
+{
+  struct spi_transfer t[3];
+  struct spi_message m;
+  u8 cmd[2];
+  u8 data[2];
+  cmd[0] = 0x01;
+  cmd[1] = 0x80 | ((spi_dev.channel >> 1) & 0x40) | 0x20;
+
+  memset(&t, 0, sizeof(t)); 
+  spi_message_init(&m);
+  m.spi = spi_dev.spi;
+
+  if(MODULE_DEBUG)
+    printk(KERN_DEBUG "MCP3202: Getting value from channel %d\n", spi_dev.channel); 
+
+  printk("cmd values: 1= %u : 0= %u\n", cmd[1], cmd[0]);
+
+  /* Configure tx/rx buffers */
+  t[0].tx_buf = &cmd[0];
+  t[0].rx_buf = NULL;
+  t[0].len = 1;
+  spi_message_add_tail(&t[0], &m);
+
+  t[1].tx_buf = &cmd[1];
+  t[1].rx_buf = &data[0];
+  t[1].len = 1;
+  spi_message_add_tail(&t[1], &m);
+
+  t[2].tx_buf = NULL;
+  t[2].rx_buf = &data[1];
+  t[2].len = 1;
+  spi_message_add_tail(&t[2], &m);
+
+  int err;
+
+  err = spi_sync(m.spi, &m);
+  if(err != 0) return -EFAULT;
+  int temp = 0;
+  temp = ((data[0] & 0x0f) << 8) | data[1]; 
+
+  printk("RAW adc data: %d\n", temp);
+
+  *value = temp;
+  
+  return 0;
+}
+
