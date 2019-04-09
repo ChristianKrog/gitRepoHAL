@@ -31,18 +31,18 @@
     };
 
     fragment@2 {
-    target = <&spi0>; // SPI Bus 0
-    __overlay__ {
-        /* needed to avoid dtc warning */
-        #address-cells = <1>;
-        #size-cells = <0>;
-        spi_drv_ADC:spi_drv@1 {
-            compatible = "spi_drv_ADC";
-            reg = <0>; // SPI Chip Select 0
-            /* spi-cpha; */ /* Comment in to set CPHA */
-            /* spi-cpol; */ /* Comment in to set CPOL */
-            spi-max-frequency = <100000>;
+        target = <&spi0>; // SPI Bus 0
+        __overlay__ {
+            /* needed to avoid dtc warning */
+            #address-cells = <1>;
+            #size-cells = <0>;
+            spi_drv_ADC:spi_drv@1 {
+                compatible = "spi_drv_ADC";
+                reg = <0>; // SPI Chip Select 0
+                /* spi-cpha; */ /* Comment in to set CPHA */
+                /* spi-cpol; */ /* Comment in to set CPOL */
+                spi-max-frequency = <100000>;
+            };
         };
     };
-};
 };

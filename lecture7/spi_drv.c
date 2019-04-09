@@ -51,6 +51,7 @@ static int spi_devs_cnt = 0; // Nbr devices present
 int write_to_DAC(struct Myspi spi_dev);
 void toggleLDAC(void);
 int read_from_ADC(struct Myspi spi_dev, int *value);
+int adc_convert(int adc_data, float *voltage);
 
 static int __init spi_drv_init(void)
 {
@@ -144,11 +145,11 @@ ssize_t spi_drv_write(struct file *filep, const char __user *ubuf,
   if(MODULE_DEBUG)
     printk("value %i\n", value);
 
-  spi_devs[minor].gain =    (value & 0x2000) >> 8;
-  spi_devs[minor].OE =      (value & 0x1000) >> 8;
-  spi_devs[minor].value =   (value & 0xFF0) >> 4;
+  //spi_devs[minor].gain =    (value & 0x2000) >> 8;
+  //spi_devs[minor].OE =      (value & 0x1000) >> 8;
+  spi_devs[minor].value =     value / 16;
 
-  printk("Masked studd in struct: channel: %d gain: %d OE: %d value: %d\n", spi_devs[minor].channel, spi_devs[minor].gain, spi_devs[minor].OE, spi_devs[minor].value);
+  //printk("Masked studd in struct: channel: %d gain: %d OE: %d value: %d\n", spi_devs[minor].channel, spi_devs[minor].gain, spi_devs[minor].OE, spi_devs[minor].value);
 
   /* Legacy file ptr f_pos. Used to support
    * random access but in char drv we dont!
@@ -253,6 +254,9 @@ static int spi_drv_probe(struct spi_device *sdev)
   int err = 0;
   struct device *spi_drv_device;
   struct device *spi_drv_dac_LDAC;
+  char name[4];
+
+  memset(name, 0, sizeof(name)); 
 
   printk(KERN_DEBUG "New SPI device: %s using chip select: %i\n",
          sdev->modalias, sdev->chip_select);
@@ -275,14 +279,18 @@ static int spi_drv_probe(struct spi_device *sdev)
     err = gpio_request(LDAC, "LDAC");
     err = gpio_direction_output(LDAC, 1);
     spi_drv_dac_LDAC = device_create(spi_drv_class, NULL, MKDEV(MAJOR(devno), 255), NULL, "LDAC");
+    sprintf(name, "DAC");
+
+    //name = "DAC";
   }
+  else sprintf(name, "ADC");
 
   for (int j =0 ; j<2;j++)
 {
   /* We map spi_devs index to minor number here */
   spi_drv_device = device_create(spi_drv_class, NULL,
                                  MKDEV(MAJOR(devno), spi_devs_cnt),
-                                 NULL, "spi_drv%d", spi_devs_cnt);
+                                 NULL, "%s_ch.%d", name, j);
   if (IS_ERR(spi_drv_device))
     printk(KERN_ALERT "FAILED TO CREATE DEVICE\n");
   else
@@ -375,7 +383,7 @@ int write_to_DAC(struct Myspi spi_dev)
   struct spi_transfer t[2];
   struct spi_message m;
   u8 cmd[2];
-  cmd[0] = spi_dev.channel | spi_dev.gain | spi_dev.OE | ((spi_dev.value & 0xf0) >> 4);
+  cmd[0] = spi_dev.channel | 0x10 | ((spi_dev.value & 0xf0) >> 4);
   cmd[1] = (u8)(spi_dev.value << 4) & 0xf0;
 
   memset(&t, 0, sizeof(t)); 
@@ -383,7 +391,7 @@ int write_to_DAC(struct Myspi spi_dev)
   m.spi = spi_dev.spi;
 
   if(MODULE_DEBUG)
-    printk(KERN_DEBUG "MCP4802: Writing %d to channel %d with gain set to %d and output enable is set to %d\n", spi_dev.value, spi_dev.channel, spi_dev.gain, spi_dev.OE); 
+    printk(KERN_DEBUG "MCP4802: Writing %d to channel %d\n", spi_dev.value, spi_dev.channel); 
 
   printk("cmd values: 1= %u : 0= %u\n", cmd[1], cmd[0]);
   /* Configure tx/rx buffers */
@@ -460,4 +468,3 @@ int read_from_ADC(struct Myspi spi_dev, int *value)
   
   return 0;
 }
-
