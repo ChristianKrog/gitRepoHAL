@@ -416,9 +416,13 @@ int write_to_DAC(struct Myspi spi_dev)
 
 void toggleLDAC(void)
 {
+  //int tog = 0;
+  //tog ^= 1;
   int time = 2;
   gpio_set_value(LDAC, 0);
-  for(int i = 0; i < 100000000; i ++) time /= 3;
+  for(int i = 0; i < 1000; i ++) time /= 3;
+  //tog ^= 1;
+  gpio_set_value(LDAC, 1);
 }
 
 int read_from_ADC(struct Myspi spi_dev, int *value)
