@@ -1,0 +1,28 @@
+# 1 "/home/stud/Documents/rhino/lecture8/attr_drv-overlay.dts"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "/home/stud/Documents/rhino/lecture8/attr_drv-overlay.dts"
+
+
+/dts-v1/;
+/plugin/;
+
+/ {
+  compatible = "brcm,bcm2835", "brcm,bcm2836", "brcm,bcm2708", "brcm,bcm2709";
+
+  fragment@0 {
+
+    target-path = "/";
+    __overlay__ {
+
+      plat_drv: plat_drv@0 {
+
+
+        compatible = "ase, plat_drv";
+ gpios = <&gpio 12 0>, <&gpio 16 0>, <&gpio 26 1>, <&gpio 20 1>, <&gpio 21 1>;
+ rhino_custom = <0x00000014>;
+        status = "okay";
+      };
+    };
+  };
+};
