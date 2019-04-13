@@ -1,1 +1,0 @@
-cmd_/home/stud/Documents/rhino/lecture8/attr_drv.ko := arm-poky-linux-gnueabi-ld -EL -r  -T ./scripts/module-common.lds --build-id  -o /home/stud/Documents/rhino/lecture8/attr_drv.ko /home/stud/Documents/rhino/lecture8/attr_drv.o /home/stud/Documents/rhino/lecture8/attr_drv.mod.o ;  true
