@@ -11,18 +11,10 @@
 #include <linux/of_gpio.h>
 #include <linux/of_device.h>
 #include <linux/of.h>
-#include <linux/timer.h>
 
 static int NUM_OF_BUTS = 0;
-u8 state = 0;
-u8 timeout_in_sec;
-
-int timer_flag = 0;
 
 MODULE_LICENSE("GPL");
-
-struct timer_list rhino_timer;
-
 
 struct button_dev {
 	int buttonno;
@@ -35,107 +27,30 @@ struct rhino_value {
 		int value;
 	};
 
-static void timer_funct(unsigned long funct_parameter);
-
 static ssize_t rhino_led_state_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	int curr;
+	int state;
 	struct rhino_value *d = dev_get_drvdata(dev);
-	curr = gpio_get_value(d->value);
+	state = gpio_get_value(d->value);
 	
 	printk(KERN_DEBUG "retrieved drvdata: %d\n", d->value);
 
-	int len = sprintf(buf, "%d", curr);
+	int len = sprintf(buf, "%d\n", state);
 	return len;
 }
 
 static ssize_t rhino_led_state_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
-	u8 curr;
+	u8 state;
 	struct rhino_value *d = dev_get_drvdata(dev);
-	int err = kstrtou8(buf, 0, &curr);
+	int err = kstrtou8(buf, 0, &state);
 	if (err < 0) 
 	{
 		printk(KERN_ALERT "Unable to parse string\n");
 		return err; 
 	}
 
-	gpio_set_value(d->value, (int)curr);
-	return size;
-}
-
-static ssize_t rhino_led_toggle_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
-{
-	/*
-	init_timer(&rhino_timer);
-	rhino_timer.expires = jiffies + timeout_in_sec * HZ;
-	rhino_timer.function = timer_funct;
-	rhino_timer.data = funct_param;
-	add_timer(&rhino_timer);
-	current = gpio_get_value(d->value);
-	gpio_set_value(d->value, (current ^ (int)state));
-	*/
-	//struct rhino_value *d = dev_get_drvdata(dev);
-	u8 incomming;
-	int err = kstrtou8(buf, 0, &incomming);
-	if (err < 0) 
-	{
-		printk(KERN_ALERT "Unable to parse string\n");
-		return err; 
-	}
-	state = incomming;
-	printk("state: %u\n", state);
-	
-	return size;
-}
-
-static ssize_t rhino_led_toggle_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-
-	int size = sprintf(buf, "%d", state);
-	
-	return size;
-}
-
-static ssize_t rhino_led_delay_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
-{
-	
-	int err = kstrtou8(buf, 0, &timeout_in_sec);
-	if (err < 0) 
-	{
-		printk(KERN_ALERT "Unable to parse string\n");
-		return err; 
-	}
-
-	struct rhino_value *d = dev_get_drvdata(dev);
-	//printk("value: %d\n", d->value);
-
-	if(timer_flag > 0)
-	{
-		del_timer(&rhino_timer);
-	}
-	u8 freq = (1 / timeout_in_sec);
-	init_timer(&rhino_timer);
-	rhino_timer.expires = (jiffies + freq * HZ);
-	rhino_timer.function = timer_funct;
-	//unsigned long p = (d->value << 8) | timeout_in_sec;
-	//printk("p: %lu\n", p);
-	rhino_timer.data = (unsigned long)(d->value << 8) | freq;
-	add_timer(&rhino_timer);
-
-
-	timer_flag = 1;
-	//current = gpio_get_value(d->value);
-	//gpio_set_value(d->value, (current ^ (int)state));	
-	
-	return size;
-}
-
-static ssize_t rhino_led_delay_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	u8 parse = (1 / timeout_in_sec);
-	int size = sprintf(buf, "%d", parse);
-	
+	gpio_set_value(d->value, state);
 	return size;
 }
 
@@ -143,12 +58,10 @@ static ssize_t rhino_led_delay_show(struct device *dev, struct device_attribute 
 
 DEVICE_ATTR_RW(rhino_led_state);
 DEVICE_ATTR_RW(rhino_led_toggle);
-DEVICE_ATTR_RW(rhino_led_delay);
 
 static struct attribute *rhino_led_attrs[] = { 
-  &dev_attr_rhino_led_state.attr,
-  &dev_attr_rhino_led_toggle.attr,
-  &dev_attr_rhino_led_delay.attr,
+  &dev_attr_rhino_led_state.attr, 
+  &dev_attr_rhino_led_toggle,
   // More attributes could go in here, 
   NULL, 
   }; 
@@ -363,7 +276,6 @@ static int gpio_init(void)
 
 static void gpio_exit(void)
 {
-	del_timer(&rhino_timer);
 	platform_driver_unregister(&rhino_button_platform_driver);
 	printk(KERN_DEBUG "Platform driver got unregistered\n");
 	class_destroy(rhino_buttons);
@@ -378,18 +290,3 @@ static void gpio_exit(void)
 module_init(gpio_init);
 module_exit(gpio_exit);
 
-static void timer_funct(unsigned long funct_parameter)
-{
-	int gpio_no = (int)(funct_parameter >> 8) & 255;
-	u8 time = (funct_parameter & 255);
-	printk("funct_parameter: %lu gpio_no: %d time : %u\n", funct_parameter, gpio_no, time);
-	rhino_timer.expires = jiffies + time * HZ;
-	add_timer(&rhino_timer);
-	//truct rhino_value *d = dev_get_drvdata(dev);
-	int curr = gpio_get_value(gpio_no);
-	if(state == 1 && curr == 1) curr = 0;
-	else if(state == 1 && curr == 0) curr = 1;
-	//curr ^= (int)state;
-	printk("curr : %d\n", curr);
-	gpio_set_value(gpio_no, curr);
-}
