@@ -108,13 +108,13 @@ static ssize_t rhino_led_delay_store(struct device *dev, struct device_attribute
 		init_timer(&rhino_timer[d->buttonno]);
 	}
 
-	rhino_timer->expires = (jiffies + d->timeout_in_sec * HZ);
+	rhino_timer[d->buttonno].expires = (jiffies + d->timeout_in_sec * HZ);
 
-	rhino_timer->function = timer_funct;
+	rhino_timer[d->buttonno].function = timer_funct;
 
-	rhino_timer->data = (unsigned long)d;
+	rhino_timer[d->buttonno].data = (unsigned long)d;
 
-	printk(KERN_DEBUG "timer->data = %lu\n", rhino_timer->data);
+	printk(KERN_DEBUG "timer->data = %lu\n", rhino_timer[d->buttonno].data);
 
 	int t = d->buttonno;
 
