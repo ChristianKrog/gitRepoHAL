@@ -29,7 +29,7 @@ struct button_dev {
 	int default_output;
 	int timer_flag;
 	u8 state;
-	u8 timeout_in_sec;
+	u32 timeout_in_sec;
 };
 
 static struct button_dev rhino_button_devs[255];
@@ -91,15 +91,16 @@ static ssize_t rhino_led_toggle_show(struct device *dev, struct device_attribute
 static ssize_t rhino_led_delay_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct button_dev *d = dev_get_drvdata(dev);
-	int err = kstrtou8(buf, 0, &d->timeout_in_sec);
+	int err = kstrtou32(buf, 0, &d->timeout_in_sec);
 	if (err < 0) 
 	{
 		printk(KERN_ALERT "Unable to parse string\n");
 		return err; 
 	}
+
 	rhino_button_devs[d->buttonno].timeout_in_sec = d->timeout_in_sec;
 
-	rhino_timer[d->buttonno].expires = (jiffies + d->timeout_in_sec * HZ);
+	rhino_timer[d->buttonno].expires = (jiffies + (d->timeout_in_sec * 1000) / HZ);
 
 	rhino_timer[d->buttonno].function = timer_funct;
 
@@ -120,7 +121,7 @@ static ssize_t rhino_led_delay_store(struct device *dev, struct device_attribute
 static ssize_t rhino_led_delay_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct button_dev *d = dev_get_drvdata(dev);
-	int size = sprintf(buf, "%d\n", d->timeout_in_sec);
+	int size = sprintf(buf, "%d\n", ((d->timeout_in_sec * 1000) / HZ));
 	if(DEBUG_FLAG)printk(KERN_DEBUG "rhino_led_delay_show got called, and delay of gpio%d printed with a value of %u\n", d->gpio_number, d->timeout_in_sec);
 	return size;
 }
@@ -380,7 +381,7 @@ static void timer_funct(unsigned long funct_parameter)
 {
 	struct button_dev * a = (struct button_dev *) funct_parameter;
 
-	rhino_timer[a->buttonno].expires = jiffies + a->timeout_in_sec * HZ;
+	rhino_timer[a->buttonno].expires = jiffies + (a->timeout_in_sec *  1000) /HZ;
 
 	add_timer(&rhino_timer[a->buttonno]);
 
