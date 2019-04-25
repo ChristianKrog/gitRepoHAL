@@ -11,7 +11,7 @@
 #define u32 unsigned int
 
 #define GPIO_INPUT 		0b000 	// GPIO Pin is an input
-#define GPIO_OUTPUT		0b001 	// GPIO Pin is an output
+unsigned int GPIO_OUTPUT = 0x00000001; 	// GPIO Pin is an output
 #define GPIO_ALT0 		0b100	// GPIO Pin takes alternate function 0
 #define GPIO_ALT1		0b101 	// GPIO Pin takes alternate function 1
 #define GPIO_ALT2		0b110 	// GPIO Pin takes alternate function 2
@@ -26,16 +26,19 @@
 #define GPFSEL4 		0x00000010
 #define GPFSEL5 		0x00000014
 
-#define GPSET0 			0x0000001c
+unsigned int GPSET0 = 0x0000001c;
 #define GPSET1			0x00000020
 
 #define GPCLR0			0x00000028
 #define GPCLR1			0x0000002c
 
+#define GPLEV0 			0x00000034
+
 #define BCM2835_PERIPH_BASE	0x20000000
 #define BCM2835_PERIPH_SIZE	0x01000000
 
-volatile unsigned int * vmem_addr, vmem_gpio_addr, vmem_clock_addr, vmem_pwm_addr;
+unsigned int* vmem_addr;
+volatile unsigned int * vmem_gpio_addr, vmem_clock_addr, vmem_pwm_addr;
 int mem_fd;
 unsigned int gpio_offset = 	0x200000; 
 unsigned int clock_offset = 0x101000;
@@ -58,21 +61,41 @@ int main(int argc, char * argv[])
 
 	vmem_gpio_addr = vmem_addr + gpio_offset/4;
 
-	vmem_clock_addr = vmem_addr + clock_offset/4;
+	vmem_clock_addr = (volatile unsigned int)(vmem_addr + clock_offset/4);
 
 	//reg_wr(vmem_gpio_addr + GPFSEL2, 0);
-	//reg_wr(vmem_gpio_addr + GPSET0, 0);
+	//reg_wr((volatile unsigned int *)((u32)vmem_gpio_addr + GPSET0), 0);
+
+	/*for(int i = 0; i < 32; i++)
+	{
+		reg_clrbit((volatile unsigned int *)((u32)vmem_gpio_addr + GPCLR0), i);
+	}
+*/
 
 	set_output(vmem_gpio_addr, 20);
 
+	for(int i = 0; i < 10; i++)
+	{
 
-	reg_setbit(vmem_gpio_addr + (unsigned int)GPSET0, 20);
+	reg_rd((volatile unsigned int *)((u32)vmem_gpio_addr + GPLEV0));
+	
+	if(i % 2 == 1)reg_setbit((volatile unsigned int *)((u32)vmem_gpio_addr + GPSET0), 20);
 
+	else reg_clrbit((volatile unsigned int *)((u32)vmem_gpio_addr + GPCLR0), 20);
 
+	//printf("evenuneven%d\n", i % 2);
+
+	sleep(1);
+
+	reg_rd((volatile unsigned int *)((u32)vmem_gpio_addr + GPLEV0));
+
+	}
 
     int err = munmap(vmem_addr, BCM2835_PERIPH_SIZE);
 
     if(err != 0)printf("Error in munmap. %s", strerror(errno));
+
+    close(mem_fd);
 
 
     return 0;
@@ -90,25 +113,29 @@ void set_output(volatile unsigned int * addr, unsigned int pin)
 	else if(t == 5) reg = GPFSEL5;
 	else printf("set_output error! pin number not in range\n");
 	
-	volatile unsigned int * a = addr + reg;
+	volatile unsigned int * a = (volatile unsigned int *)((unsigned int)addr + reg);
 
-	reg_wr(a, (u32)a | (unsigned int)(GPIO_OUTPUT << (pin % 10)));
-	printf("t = %u reg_wr called with value: %u\n", t, (GPIO_OUTPUT << (pin % 10)));
-	printf("GPFSEL%u got written to %x\n", t, (u32)*a);
+	unsigned int b = (GPIO_OUTPUT << (pin % 10));
+	//printf("b = %x\n", b);
+
+	reg_wr(a, b);
+	//printf("t = %u reg_wr called with value: %x\n", t, (GPIO_OUTPUT << (pin % 10)));
+	//printf("GPFSEL%u got written to %x\n", t, (u32)*a);
 }
 
 void reg_setbit(volatile unsigned int * addr, unsigned int bit)
 {
-	unsigned int value = *addr | (1 << bit);
-	addr = &value;
-	printf("reg_setbit: register at addr %p is set to %x\n", addr, (u32)*addr);
+	//printf("reg_setbit *addr = %x\n", (u32)*addr);
+	//printf("reg_setbit bit = %u\n", bit);
+	*addr = ((u32)*addr | (1 << bit));
+	//printf("reg_setbit: register at addr %p is set to %x\n", addr, (u32)*addr);
 }
 
 void reg_clrbit(volatile unsigned int * addr, unsigned int bit)
 {
-	unsigned int value = *addr & (~(1 << bit));
-	addr = &value;
-	printf("register at addr %p is set to %x\n", addr, (u32)*addr);
+	unsigned int value = (u32)*addr & (1 << bit);
+	*addr = value;
+	//printf("register at addr %p is set to %x\n", addr, (u32)*addr);
 }
 
 unsigned int reg_rd(volatile unsigned int * addr)
@@ -119,7 +146,7 @@ unsigned int reg_rd(volatile unsigned int * addr)
 
 void reg_wr(volatile unsigned int* addr, unsigned int value)
 {
-	addr = &value;
+	*addr = value;
 	
-	printf("reg_wr: register at addr %p is set to %x\n", addr, value);
+	//printf("reg_wr: register at addr %p is set to %x\n", addr, (u32)*addr);
 }
