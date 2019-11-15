@@ -29,7 +29,6 @@ char my_irq[3] = "mi";
 static DECLARE_WAIT_QUEUE_HEAD(wq);
 static int flag = 0;
 
-struct cdev rhino_cdev;
 struct file_operations rhino_fops;
 
 irqreturn_t but_ISR(int irq, void *dev_id);
@@ -41,7 +40,7 @@ static int gpio_init(void)
 	if(err < 0) goto error_exit;
 	printk(KERN_ALERT "gpio_reguest, successfull\n");
 	err = gpio_direction_input(b0);
-	if(err < 0) goto error_free_gpio;
+	if(err < 0) goto error_free_gpio;µ
 	printk(KERN_ALERT "gpio_direction got set to input\n");
 	devno = MKDEV(BUT0_MAJOR, BUT0_MINOR);
 
